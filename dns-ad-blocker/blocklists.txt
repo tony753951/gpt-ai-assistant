@@ -1,0 +1,11 @@
+# 名稱|網址   （每行一個，# 開頭為註解）
+# --- 廣告 ---
+AdGuard DNS filter|https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+HaGeZi Multi PRO|https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt
+OISD Big|https://big.oisd.nl
+# --- 中文 / 台灣 App 廣告 ---
+CHN anti-AD|https://anti-ad.net/easylist.txt
+CHN AdRules DNS|https://raw.githubusercontent.com/Cats-Team/AdRules/main/dns.txt
+# --- 追蹤 / 惡意 / 釣魚 ---
+HaGeZi Threat Intelligence|https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.txt
+Phishing Army|https://phishing.army/download/phishing_army_blocklist.txt

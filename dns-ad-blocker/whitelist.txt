@@ -1,0 +1,14 @@
+# 白名單：某個 App 被誤擋壞掉時，把網域加在這裡，再執行 ./apply-config.sh
+# 一行一個網域，# 開頭為註解。
+# 想找出是哪個網域被擋，請到管理介面「查詢記錄」篩選「已封鎖」。
+
+# Apple 系統服務
+apple.com
+icloud.com
+mzstatic.com
+# LINE
+line-scdn.net
+line-apps.com
+# 常見購物 / 金流（點廣告連結跳轉用）
+shopee.tw
+momoshop.com.tw
