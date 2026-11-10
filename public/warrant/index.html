@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>權證分點大戶搜尋</title>
+<style>
+:root, :root[data-theme="dark"] {
+  --bg: #0b1220;
+  --panel: #111a2b;
+  --panel-2: #0f1727;
+  --panel-3: #16223a;
+  --border: #1f2c44;
+  --border-2: #2a3a57;
+  --text: #e6ecf5;
+  --text-2: #9aa8bf;
+  --text-3: #6b7a93;
+  --accent: #f5c242;
+  --accent-ink: #1a1405;
+  --up: #ff4d4f;
+  --down: #22c55e;
+  --up-bg: #3a1418;
+  --down-bg: #0f3a22;
+  --grid: rgba(148, 163, 184, 0.10);
+  --window: rgba(245, 194, 66, 0.10);
+  --boll-fill: rgba(148, 163, 184, 0.08);
+  --boll-line: rgba(203, 213, 225, 0.55);
+  --vol: #7f9cc9;
+  --cum: #8b97a8;
+  --ma5: #f5a524;
+  --ma10: #22b8cf;
+  --ma20: #e64980;
+  --ma60: #7c6cf0;
+  --row-active: #172a45;
+  --shadow: 0 1px 0 rgba(255,255,255,0.02), 0 8px 24px rgba(0,0,0,0.25);
+}
+:root[data-theme="light"] {
+  --bg: #f3f5f9;
+  --panel: #ffffff;
+  --panel-2: #f7f9fc;
+  --panel-3: #eef2f8;
+  --border: #e1e6ef;
+  --border-2: #cfd7e4;
+  --text: #142033;
+  --text-2: #4d5b72;
+  --text-3: #8592a6;
+  --accent: #e0a800;
+  --accent-ink: #1a1405;
+  --up: #e5383b;
+  --down: #12a150;
+  --up-bg: #fde8e8;
+  --down-bg: #e3f6ea;
+  --grid: rgba(15, 23, 42, 0.07);
+  --window: rgba(224, 168, 0, 0.12);
+  --boll-fill: rgba(100, 116, 139, 0.07);
+  --boll-line: rgba(71, 85, 105, 0.5);
+  --vol: #8ea7cf;
+  --cum: #6b7686;
+  --ma5: #e08a00;
+  --ma10: #0b9ab3;
+  --ma20: #d6336c;
+  --ma60: #6247e0;
+  --row-active: #e7effb;
+  --shadow: 0 1px 2px rgba(15,23,42,0.06);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+.up { color: var(--up); }
+.down { color: var(--down); }
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+
+/* ---------- top bar ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; letter-spacing: .5px; white-space: nowrap; }
+.logo { width: 30px; height: 30px; border-radius: 7px; background: var(--panel-3); display: grid; place-items: center; border: 1px solid var(--border-2); }
+.tabs { display: flex; gap: 6px; }
+.tab { border: 0; background: transparent; padding: 7px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--text-2); }
+.tab[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.spacer { flex: 1; }
+.btn {
+  border: 1px solid var(--border-2); background: var(--panel-3);
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { border-color: var(--text-3); }
+.latest { white-space: nowrap; color: var(--text-2); }
+.latest b { color: var(--text); margin-left: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--border-2); border-radius: 7px; overflow: hidden; background: var(--panel-3); }
+.seg button { border: 0; background: transparent; padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* ---------- filter bar ---------- */
+.filters {
+  margin: 12px 8px; padding: 12px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; box-shadow: var(--shadow);
+}
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.badge { font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--accent); color: var(--accent); cursor: pointer; background: transparent; }
+.type-toggle { display: flex; gap: 6px; }
+.type-toggle button { border: 1px solid var(--border-2); background: var(--panel-3); padding: 8px 18px; border-radius: 6px; font-weight: 700; cursor: pointer; color: var(--up); }
+.type-toggle button.put { color: var(--down); }
+.type-toggle button.call[aria-pressed="true"] { background: var(--up); color: #fff; border-color: var(--up); }
+.type-toggle button.put[aria-pressed="true"] { background: var(--down); color: #fff; border-color: var(--down); }
+.input {
+  border: 1px solid var(--border-2); background: var(--panel-2); border-radius: 6px; padding: 7px 10px; height: 36px;
+}
+.input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: -1px; }
+input[type="date"].input { color-scheme: dark; }
+:root[data-theme="light"] input[type="date"].input { color-scheme: light; }
+.days { display: flex; border: 1px solid var(--border-2); border-radius: 6px; overflow: hidden; height: 36px; background: var(--panel-2); }
+.days button { border: 0; background: transparent; padding: 0 12px; cursor: pointer; color: var(--text-2); min-width: 36px; }
+.days button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.with-unit { position: relative; display: inline-flex; align-items: center; }
+.with-unit .input { padding-right: 34px; text-align: right; }
+.with-unit span { position: absolute; right: 8px; font-size: 11px; color: var(--text-3); pointer-events: none; }
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; height: 36px; user-select: none; color: var(--text-2); }
+.switch input { display: none; }
+.switch i { width: 32px; height: 18px; border-radius: 999px; background: var(--border-2); position: relative; transition: background .15s; }
+.switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { left: 16px; }
+.primary { background: var(--accent); color: var(--accent-ink); border: 0; font-weight: 700; padding: 0 18px; height: 36px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.primary:hover { filter: brightness(1.06); }
+.range-info { margin-left: auto; align-self: flex-end; color: var(--text-2); white-space: nowrap; padding-bottom: 8px; }
+.range-info b { color: var(--text); margin: 0 4px; }
+
+/* ---------- main layout ---------- */
+.main { display: grid; grid-template-columns: minmax(340px, 600px) 1fr; gap: 12px; padding: 0 8px 16px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; }
+.card-title { font-size: 15px; font-weight: 700; padding-left: 8px; border-left: 3px solid var(--accent); }
+.tag { font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px solid currentColor; }
+.tag.call { color: var(--up); }
+.tag.put { color: var(--down); }
+.link-btn { border: 0; background: transparent; cursor: pointer; color: var(--text-2); display: inline-flex; gap: 4px; align-items: center; }
+.link-btn:hover { color: var(--text); }
+.list-tools { display: flex; gap: 8px; padding: 4px 12px 10px; }
+.search { position: relative; flex: 1; }
+.search .input { width: 100%; padding-left: 28px; }
+.search svg { position: absolute; left: 9px; top: 11px; color: var(--text-3); }
+
+table.rank { width: 100%; border-collapse: collapse; }
+.rank th { font-size: 12px; font-weight: 600; color: var(--text-2); text-align: left; padding: 8px 6px; background: var(--panel-3); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.rank th.r, .rank td.r { text-align: right; }
+.rank th small { display: block; font-weight: 400; color: var(--text-3); font-size: 10px; }
+.rank th.sortable { cursor: pointer; }
+.rank th .arrow { color: var(--accent); }
+.rank td { padding: 9px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.rank tr.row { cursor: pointer; }
+.rank tr.row:hover td { background: color-mix(in srgb, var(--row-active) 60%, transparent); }
+.rank tr.row.active td { background: var(--row-active); }
+.rank tr.row.active td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.rank .chev { border: 0; background: transparent; cursor: pointer; color: var(--text-3); padding: 2px 4px; transition: transform .15s; }
+.rank tr.open .chev { transform: rotate(90deg); }
+.rank .no { display: inline-grid; place-items: center; min-width: 24px; height: 24px; border-radius: 5px; background: var(--panel-3); font-weight: 700; font-size: 12px; }
+.rank .stk b { display: block; font-size: 14px; }
+.rank .stk span, .rank .brk span { font-size: 11px; color: var(--text-3); }
+.rank .brk div { font-size: 13px; }
+.rank .amt { font-size: 15px; font-weight: 700; }
+.rank .pnl { font-size: 12px; }
+.rank .pnl small { display: block; color: var(--text-3); }
+.detail td { background: var(--panel-2); padding: 8px 12px 12px 40px; }
+.detail .daily { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; }
+.detail .daily span { white-space: nowrap; }
+.list-foot { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; color: var(--text-2); font-size: 12px; }
+.pill { background: var(--panel-3); border-radius: 4px; padding: 2px 8px; }
+.empty { padding: 36px 12px; text-align: center; color: var(--text-3); }
+.scroll { max-height: calc(100vh - 290px); min-height: 120px; overflow: auto; }
+
+/* ---------- chart card ---------- */
+.chart-card { padding: 12px; min-width: 0; }
+.chart-card.zoomed { position: fixed; inset: 8px; z-index: 50; overflow: auto; }
+.summary { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 22px; padding: 2px 4px 12px; }
+.summary .title { font-size: 24px; font-weight: 700; display: flex; align-items: baseline; gap: 10px; }
+.summary .title span { font-size: 15px; font-weight: 400; color: var(--text-2); }
+.kpi { display: flex; flex-direction: column; gap: 2px; padding-left: 18px; border-left: 1px solid var(--border); }
+.kpi label { font-size: 11px; color: var(--text-2); }
+.kpi label small { color: var(--text-3); margin-left: 2px; }
+.kpi .v { font-size: 26px; font-weight: 800; line-height: 1.1; }
+.kpi .v.neutral { color: var(--text); }
+.summary .broker { font-size: 21px; font-weight: 700; }
+.summary .right { margin-left: auto; align-self: flex-start; }
+.chart-wrap { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
+.ohlc { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.ohlc b { font-weight: 700; }
+.ohlc .k { color: var(--text-2); margin-right: 3px; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 10px 0; font-size: 12px; }
+.legend .tg { border: 1px solid var(--border-2); background: var(--panel-3); color: var(--text-2); padding: 4px 10px; border-radius: 5px; cursor: pointer; }
+.legend .tg[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.legend .li { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); }
+.legend .li b { color: var(--text); font-weight: 600; }
+.legend .sw { width: 14px; height: 2px; display: inline-block; }
+.legend .sw.dash { background: none; border-top: 2px dashed var(--boll-line); }
+.legend .grp { display: inline-flex; gap: 14px; flex-wrap: wrap; }
+.legend .grp[hidden] { display: none; }
+canvas { display: block; width: 100%; touch-action: pan-y; }
+#priceCanvas { height: 380px; cursor: crosshair; }
+#flowCanvas { height: 270px; cursor: crosshair; }
+.chart-card.zoomed #priceCanvas { height: calc(60vh - 80px); }
+.chart-card.zoomed #flowCanvas { height: calc(40vh - 80px); }
+.flow-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 26px; background: var(--panel-3); margin: 0 8px; padding: 7px 10px; font-size: 12px; border-radius: 4px; }
+.flow-head .t { font-weight: 700; color: var(--text); }
+.flow-head .r { margin-left: auto; color: var(--text-2); }
+.flow-head .cum { color: var(--text-2); display: inline-flex; align-items: center; gap: 6px; }
+.flow-head .cum::before { content: ""; width: 16px; height: 1px; background: var(--cum); display: inline-block; }
+.chart-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
+.chart-foot .ctl { display: flex; gap: 6px; }
+.chart-foot .ctl .btn { padding: 4px 10px; font-size: 12px; }
+.chart-note { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; padding: 0 12px 10px; font-size: 11px; color: var(--text-3); }
+.sim { font-size: 11px; color: var(--text-3); text-align: center; padding: 0 8px 16px; }
+
+.k-controls[hidden], .s-controls[hidden] { display: none !important; }
+
+@media (max-width: 1100px) {
+  .main { grid-template-columns: 1fr; }
+  .scroll { max-height: 420px; }
+}
+@media (max-width: 640px) {
+  .topbar { flex-wrap: wrap; gap: 10px; }
+  .brand { font-size: 16px; }
+  .filters { margin: 10px 8px; }
+  .range-info { margin-left: 0; }
+  .summary .title { font-size: 20px; }
+  .kpi .v { font-size: 20px; }
+  .rank .hide-sm { display: none; }
+  .days { max-width: calc(100vw - 50px); overflow-x: auto; }
+  .days button { padding: 0 9px; min-width: 30px; }
+  .filters .field { max-width: 100%; }
+  #priceCanvas { height: 300px; }
+  #flowCanvas { height: 220px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 18 18"><rect x="2" y="8" width="2.4" height="8" rx="1" fill="#f5c242"/><rect x="6.2" y="4" width="2.4" height="12" rx="1" fill="#f5c242"/><rect x="10.4" y="10" width="2.4" height="6" rx="1" fill="#f5c242"/><rect x="14.4" y="2" width="2.4" height="14" rx="1" fill="#f5c242"/></svg>
+    </div>
+    權證分點大戶搜尋
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-mode="search" aria-selected="true">分點大戶搜尋</button>
+    <button class="tab" role="tab" data-mode="kline" aria-selected="false">權證籌碼K線</button>
+  </nav>
+  <div class="spacer"></div>
+  <button class="btn" id="shotBtn" title="下載圖表截圖">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>截圖
+  </button>
+  <div class="latest">最新資料<b class="num" id="latestDate"></b></div>
+  <div class="seg" role="group" aria-label="主題">
+    <button data-theme-btn="dark" aria-pressed="true">深色</button>
+    <button data-theme-btn="light" aria-pressed="false">亮色</button>
+  </div>
+</header>
+
+<section class="filters">
+  <div class="field">
+    <label>權證類型</label>
+    <div class="type-toggle">
+      <button class="call" data-type="call" aria-pressed="false">認購</button>
+      <button class="put" data-type="put" aria-pressed="true">認售</button>
+    </div>
+  </div>
+  <div class="field k-controls" hidden>
+    <label>股票</label>
+    <input class="input" id="stockInput" list="stockList" placeholder="代號或名稱" style="width:150px">
+    <datalist id="stockList"></datalist>
+  </div>
+  <div class="field">
+    <label>查詢截止日 <button class="badge" id="latestBtn" type="button">最新</button></label>
+    <input class="input num" type="date" id="endDate" style="width:150px">
+  </div>
+  <div class="field">
+    <label>累計交易天數 <span class="faint">含截止日</span></label>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; max-width:100%">
+      <div class="days" id="daysGroup"></div>
+      <div class="with-unit"><input class="input num" id="daysInput" type="number" min="1" max="250" style="width:84px"><span>天</span></div>
+    </div>
+  </div>
+  <div class="field s-controls">
+    <label>買超金額大於</label>
+    <div class="with-unit"><input class="input num" id="minAmt" type="number" min="0" step="50" value="800" style="width:118px"><span>萬元</span></div>
+  </div>
+  <label class="switch s-controls"><input type="checkbox" id="unique"><i></i>樣本不重複</label>
+  <label class="switch s-controls"><input type="checkbox" id="excludeHQ" checked><i></i>排除總行</label>
+  <button class="primary" id="searchBtn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+    <span id="searchLabel">開始搜尋</span>
+  </button>
+  <div class="range-info">資料區間<b class="num" id="rangeText"></b><span id="rangeDays"></span></div>
+</section>
+
+<main class="main">
+  <section class="card" id="listCard">
+    <div class="card-head">
+      <span class="card-title" id="listTitle">分點買超排行</span>
+      <span class="tag put" id="listTag">認售</span>
+      <div class="spacer"></div>
+      <button class="link-btn" id="exportBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg>匯出
+      </button>
+    </div>
+    <div class="list-tools">
+      <div class="search">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input class="input" id="filterInput" placeholder="搜尋股票、券商或分點…">
+      </div>
+      <select class="input" id="sortSel">
+        <option value="amt-desc">買超金額：高 → 低</option>
+        <option value="amt-asc">買超金額：低 → 高</option>
+        <option value="pnl-desc">推估損益：高 → 低</option>
+        <option value="pnl-asc">推估損益：低 → 高</option>
+        <option value="code-asc">股票代號</option>
+      </select>
+    </div>
+    <div class="scroll">
+      <table class="rank">
+        <thead>
+          <tr>
+            <th style="width:22px"></th>
+            <th style="width:44px">名次</th>
+            <th>股票</th>
+            <th>券商分點</th>
+            <th class="r sortable" data-sort="amt"><span id="amtHead">買超金額</span> <span class="arrow" id="amtArrow">↓</span><small>萬元</small></th>
+            <th class="r sortable hide-sm" data-sort="pnl">推估損益 <span class="arrow" id="pnlArrow">↕</span><small>萬元 / %</small></th>
+          </tr>
+        </thead>
+        <tbody id="rankBody"></tbody>
+      </table>
+    </div>
+    <div class="list-foot"><span class="pill" id="countText">共 0 檔</span><span id="groupText">0 組</span></div>
+  </section>
+
+  <section class="card chart-card" id="chartCard">
+    <div class="summary">
+      <div class="title"><span id="sName" style="font-size:inherit;font-weight:inherit;color:var(--text)">—</span><span id="sCode"></span></div>
+      <div class="kpi"><label>區間買超金額<small>萬元</small></label><div class="v num" id="kAmt">—</div></div>
+      <div class="kpi"><label>推估損益<small>萬元</small></label><div class="v num neutral" id="kPnl">—</div></div>
+      <div class="kpi" style="border-left:1px solid var(--border)"><div class="broker" id="kBroker">—</div></div>
+      <div class="kpi" style="border-left:0;padding-left:0"><label>當日買賣超（萬元）</label><div class="v num" id="kDay">—</div></div>
+      <div class="right"><span class="tag put" id="chartTag">認售</span></div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="ohlc num" id="ohlc"></div>
+      <div class="legend">
+        <button class="tg" id="maTg" aria-pressed="true">均線</button>
+        <button class="tg" id="bollTg" aria-pressed="true">布林通道</button>
+        <span class="grp" id="maLegend"></span>
+        <span class="grp" id="bollLegend"></span>
+      </div>
+      <canvas id="priceCanvas"></canvas>
+      <div class="flow-head num">
+        <span class="t">權證買賣超（萬元）</span>
+        <span id="fhDay"></span>
+        <span class="cum" id="fhCum"></span>
+        <span class="r" id="fhFrom"></span>
+      </div>
+      <canvas id="flowCanvas"></canvas>
+      <div class="chart-foot">
+        <span class="num" id="viewText"></span>
+        <div class="ctl">
+          <button class="btn" id="zoomOut" title="縮小（顯示更多K棒）">−</button>
+          <button class="btn" id="zoomIn" title="放大（顯示較少K棒）">+</button>
+          <button class="btn" id="resetView">重設 120 日</button>
+          <button class="btn" id="bigBtn">放大圖表</button>
+        </div>
+      </div>
+      <div class="chart-note">
+        <span>金色底：查詢區間 · 累積 / 每日買賣超（萬元，尺度獨立）</span>
+        <span>均線 / 布林：未還原價 · 拖曳平移 · Ctrl + 滾輪縮放</span>
+      </div>
+    </div>
+  </section>
+</main>
+<p class="sim">本頁目前使用內建模擬資料（決定性產生），僅供介面展示；接上真實資料來源請替換 <code>DataSource</code>。</p>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+ * DataSource — simulated, deterministic market + warrant broker data.
+ * Replace the methods of this object with real API calls to go live.
+ * ===================================================================*/
+const LATEST = '2026-11-10';
+
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rngOf(seed) { let a = typeof seed === 'string' ? hashStr(seed) : seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function gauss(r) { let u = 0, v = 0; while (u === 0) u = r(); while (v === 0) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+const STOCKS = [
+  ['TWA00', '加權指數', 42000, 12800000, 0.011],
+  ['2330', '台積電', 1450, 38000, 0.017], ['2454', '聯發科', 1580, 9000, 0.022], ['2317', '鴻海', 228, 62000, 0.019],
+  ['2308', '台達電', 780, 9500, 0.02], ['2382', '廣達', 312, 21000, 0.024], ['3231', '緯創', 138, 48000, 0.027],
+  ['2376', '技嘉', 296, 16000, 0.028], ['6669', '緯穎', 3150, 1500, 0.03], ['3661', '世芯-KY', 3380, 2300, 0.034],
+  ['3443', '創意', 1520, 3600, 0.032], ['2345', '智邦', 1180, 5100, 0.026], ['3017', '奇鋐', 1060, 6100, 0.029],
+  ['2603', '長榮', 212, 31000, 0.023], ['2609', '陽明', 68.2, 42000, 0.025], ['2881', '富邦金', 92.5, 27000, 0.012],
+  ['2882', '國泰金', 66.8, 30000, 0.012], ['2303', '聯電', 51.3, 54000, 0.018], ['2412', '中華電', 133, 9000, 0.007],
+  ['3008', '大立光', 2280, 900, 0.022], ['2357', '華碩', 655, 3500, 0.019], ['3034', '聯詠', 498, 4200, 0.021],
+  ['2379', '瑞昱', 562, 3800, 0.02], ['6505', '台塑化', 41.2, 8000, 0.012], ['1301', '台塑', 39.5, 17000, 0.014],
+  ['2002', '中鋼', 20.4, 46000, 0.012], ['3711', '日月光投控', 188, 21000, 0.019], ['2395', '研華', 412, 1700, 0.015],
+  ['4919', '新唐', 112, 9800, 0.028], ['3037', '欣興', 198, 25000, 0.026], ['8046', '南電', 236, 11000, 0.03],
+  ['2449', '京元電子', 118, 27000, 0.027], ['6274', '台燿', 312, 8100, 0.029], ['3529', '力旺', 2100, 900, 0.031],
+  ['5269', '祥碩', 1420, 1300, 0.03], ['6415', '矽力*-KY', 486, 2800, 0.031], ['2408', '南亞科', 68.5, 52000, 0.03],
+  ['2344', '華邦電', 33.6, 98000, 0.029], ['1519', '華城', 712, 5500, 0.033], ['1503', '士電', 266, 6200, 0.026],
+].map(([code, name, base, vol, sigma]) => ({ code, name, base, vol, sigma }));
+
+const BROKERS = [
+  ['779C1', '國票-敦北法人'], ['9268', '凱基-台北'], ['9216', '凱基-信義'], ['592Z', '元大-土城永寧'], ['5920', '元大總公司'],
+  ['9800', '元大-中正'], ['9600', '富邦總公司'], ['9661', '富邦-建國'], ['9658', '富邦-嘉義'], ['9A9R', '永豐金-敦南'],
+  ['9A00', '永豐金總公司'], ['920F', '凱基-站前'], ['1160', '日盛-台北'], ['8440', '摩根大通'], ['1360', '港商麥格理'],
+  ['8150', '台新-建北'], ['8880', '國泰總公司'], ['888A', '國泰-敦南'], ['6460', '大昌-新店'], ['5850', '統一-城中'],
+  ['5380', '第一金-台中'], ['7790', '國票總公司'], ['779Z', '國票-安和'], ['9133', '群益-大安'], ['9100', '群益金鼎總公司'],
+  ['9189', '群益-台南'], ['6010', '犇亞證券'], ['9875', '元大-館前'], ['8565', '新百王'], ['700T', '兆豐-忠孝'],
+  ['1650', '新加坡商瑞銀'], ['2180', '亞東'], ['5260', '大慶-板橋'], ['8960', '香港上海匯豐'], ['6160', '中國信託-永康'],
+].map(([code, name]) => ({ code, name, hq: /總公司|總行/.test(name) }));
+
+// Trading calendar: weekdays only, ending at LATEST.
+const CAL = (() => {
+  const out = []; const d = new Date('2025-01-02T00:00:00Z'); const end = new Date(LATEST + 'T00:00:00Z');
+  while (d <= end) { const w = d.getUTCDay(); if (w !== 0 && w !== 6) out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+  return out;
+})();
+const N = CAL.length;
+
+function tickRound(p, isIndex) {
+  if (isIndex) return Math.round(p * 100) / 100;
+  const t = p < 10 ? 0.01 : p < 50 ? 0.05 : p < 100 ? 0.1 : p < 500 ? 0.5 : p < 1000 ? 1 : 5;
+  return Math.round(Math.round(p / t) * t * 100) / 100;
+}
+
+const barsCache = new Map();
+function genBars(stock) {
+  if (barsCache.has(stock.code)) return barsCache.get(stock.code);
+  const r = rngOf('bars:' + stock.code); const isIdx = stock.code === 'TWA00'; const s = stock.sigma;
+  // Walk backwards-agnostic: generate forward from a start that lands near `base` at the end.
+  const rets = []; let drift = 0;
+  for (let i = 0; i < N; i++) { if (i % 40 === 0) drift = (r() - 0.45) * s * 0.25; rets.push(drift + gauss(r) * s); }
+  // Late sell-off then bounce for flavor (matches typical "dip then buy" scenario)
+  for (let i = N - 12; i < N - 2; i++) rets[i] -= s * 0.6;
+  rets[N - 2] += s * 0.4; rets[N - 1] += s * 1.3;
+  let total = rets.reduce((a, b) => a + b, 0);
+  let price = stock.base / Math.exp(total);
+  const bars = []; let prev = price;
+  for (let i = 0; i < N; i++) {
+    const c = prev * Math.exp(rets[i]);
+    const o = prev * (1 + gauss(r) * s * 0.35);
+    const hi = Math.max(o, c) * (1 + Math.abs(gauss(r)) * s * 0.45);
+    const lo = Math.min(o, c) * (1 - Math.abs(gauss(r)) * s * 0.45);
+    const v = Math.max(1, Math.round(stock.vol * (0.75 + 0.25 * gauss(r) * 0.6 + Math.abs(rets[i]) / s * 0.18)));
+    bars.push({ d: CAL[i], o: tickRound(o, isIdx), h: tickRound(hi, isIdx), l: tickRound(lo, isIdx), c: tickRound(c, isIdx), v });
+    prev = c;
+  }
+  for (const b of bars) { b.h = Math.max(b.h, b.o, b.c); b.l = Math.min(b.l, b.o, b.c); }
+  barsCache.set(stock.code, bars);
+  return bars;
+}
+
+// Warrant flows: per stock → list of { broker, call: Float64Array, put: Float64Array } (萬元/日)
+const flowCache = new Map();
+function genFlows(stock) {
+  if (flowCache.has(stock.code)) return flowCache.get(stock.code);
+  const r = rngOf('flows:' + stock.code);
+  const k = 6 + Math.floor(r() * 6); const pool = BROKERS.slice();
+  const out = [];
+  for (let j = 0; j < k && pool.length; j++) {
+    const b = pool.splice(Math.floor(r() * pool.length), 1)[0];
+    const rec = { broker: b, call: new Float64Array(N), put: new Float64Array(N) };
+    for (const type of ['call', 'put']) {
+      const arr = rec[type];
+      const camps = 1 + Math.floor(r() * 4);
+      const size = Math.exp(3.4 + r() * 2.4); // typical daily size in 萬
+      for (let c = 0; c < camps; c++) {
+        const late = r() < 0.16;
+        const len = 1 + Math.floor(r() * 7);
+        const start = late ? N - 1 - Math.floor(r() * 9) - Math.floor(len / 2) : Math.floor(r() * (N - 30));
+        let sum = 0;
+        for (let i = 0; i < len; i++) {
+          const idx = Math.min(N - 1, start + i); if (idx < 0) continue;
+          if (r() < 0.25 && i > 0) continue;
+          const a = Math.round(size * (0.4 + r() * 1.6) * 10) / 10; arr[idx] += a; sum += a;
+        }
+        // Exit some campaigns later with sells.
+        const exitAt = start + len + 5 + Math.floor(r() * 30);
+        if (exitAt < N - 1 && r() < 0.7) {
+          const parts = 1 + Math.floor(r() * 3); const tot = sum * (0.75 + r() * 0.4);
+          for (let p = 0; p < parts; p++) { const idx = Math.min(N - 1, exitAt + p * (1 + Math.floor(r() * 3))); arr[idx] -= Math.round(tot / parts * 10) / 10; }
+        }
+      }
+      for (let i = 0; i < N; i++) if (r() < 0.012) arr[i] += Math.round(gauss(r) * size * 0.15 * 10) / 10;
+    }
+    out.push(rec);
+  }
+  flowCache.set(stock.code, out);
+  return out;
+}
+
+const DataSource = {
+  latest: LATEST,
+  calendar: CAL,
+  stocks: STOCKS,
+  bars(stockCode) { return genBars(STOCKS.find(x => x.code === stockCode)); },
+  flowsFor(stockCode, brokerCode, type) {
+    const s = STOCKS.find(x => x.code === stockCode); if (!s) return new Float64Array(N);
+    const recs = genFlows(s);
+    if (!brokerCode) { const a = new Float64Array(N); for (const r of recs) for (let i = 0; i < N; i++) a[i] += r[type][i]; return a; }
+    const rec = recs.find(x => x.broker.code === brokerCode); return rec ? rec[type] : new Float64Array(N);
+  },
+  brokersFor(stockCode) { const s = STOCKS.find(x => x.code === stockCode); return s ? genFlows(s).map(r => r.broker) : []; },
+};
+
+/* ===================================================================== */
+const $ = (id) => document.getElementById(id);
+const fmt = (v, d = 1) => (v == null || Number.isNaN(v)) ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtS = (v, d = 1) => (v > 0 ? '+' : '') + fmt(v, d);
+const cls = (v) => v > 0 ? 'up' : v < 0 ? 'down' : '';
+const slash = (d) => d.replace(/-/g, '/');
+const priceDigits = (p) => p >= 10000 ? 2 : p < 50 ? 2 : p < 1000 ? (p % 1 ? 2 : 1) : 0;
+const fmtP = (p, ref) => fmt(p, ref >= 10000 ? 2 : ref < 1000 ? 2 : 0);
+
+const DAY_OPTS = [1, 5, 10, 20, 60, 90, 120, 150];
+const LEV = 4; // rough warrant effective leverage for P&L estimate
+
+const state = {
+  mode: 'search', type: 'put', endIdx: N - 1, days: 10, minAmt: 800, unique: false, excludeHQ: true,
+  results: [], filter: '', sort: 'amt-desc', open: new Set(), selKey: null,
+  klineStock: 'TWA00', klineBroker: '',
+  chart: null, viewEnd: N - 1, viewCount: 120, hover: null, showMA: true, showBoll: true,
+};
+
+function idxForDate(ds) { let lo = 0, hi = N - 1, ans = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (CAL[m] <= ds) { ans = m; lo = m + 1; } else hi = m - 1; } return Math.max(0, ans); }
+
+function estimatePnl(stockCode, flows, s, e) {
+  const bars = DataSource.bars(stockCode); const sign = state.type === 'call' ? 1 : -1;
+  let pnl = 0, cost = 0, lastFlow = -1;
+  for (let i = s; i <= e; i++) {
+    const a = flows[i]; if (!a) continue; lastFlow = i;
+    if (a > 0) cost += a;
+    pnl += a * sign * LEV * (bars[e].c / bars[i].c - 1);
+  }
+  const pending = lastFlow === e && e === N - 1;
+  return { pnl, pct: cost ? pnl / cost * 100 : 0, pending };
+}
+
+function runSearch() {
+  const e = state.endIdx, s = Math.max(0, e - state.days + 1);
+  const res = [];
+  for (const st of STOCKS) {
+    for (const rec of genFlows(st)) {
+      if (state.excludeHQ && rec.broker.hq) continue;
+      const arr = rec[state.type]; let sum = 0;
+      for (let i = s; i <= e; i++) sum += arr[i];
+      if (sum > state.minAmt) {
+        const est = estimatePnl(st.code, arr, s, e);
+        res.push({ key: st.code + '|' + rec.broker.code, stock: st, broker: rec.broker, amt: sum, flows: arr, ...est });
+      }
+    }
+  }
+  res.sort((a, b) => b.amt - a.amt);
+  let out = res;
+  if (state.unique) { const seen = new Set(); out = res.filter(r => !seen.has(r.stock.code) && seen.add(r.stock.code)); }
+  out.forEach((r, i) => r.rank = i + 1);
+  state.results = out;
+  state.open.clear();
+  if (!out.find(r => r.key === state.selKey)) state.selKey = out[0]?.key ?? null;
+  renderList();
+  loadChartFromSelection();
+}
+
+function runKline() {
+  const e = state.endIdx, s = Math.max(0, e - state.days + 1);
+  const code = state.klineStock; const st = STOCKS.find(x => x.code === code);
+  const res = [];
+  if (st) {
+    for (const rec of genFlows(st)) {
+      if (state.excludeHQ && rec.broker.hq) continue;
+      const arr = rec[state.type]; let sum = 0, active = false;
+      for (let i = s; i <= e; i++) { sum += arr[i]; if (arr[i]) active = true; }
+      const est = estimatePnl(code, arr, s, e);
+      res.push({ key: code + '|' + rec.broker.code, stock: st, broker: rec.broker, amt: sum, flows: arr, active, ...est });
+    }
+    const all = DataSource.flowsFor(code, '', state.type); let sum = 0; for (let i = s; i <= e; i++) sum += all[i];
+    res.push({ key: code + '|', stock: st, broker: { code: '', name: '全部分點合計' }, amt: sum, flows: all, all: true, ...estimatePnl(code, all, s, e) });
+  }
+  res.sort((a, b) => (b.all - a.all) || (b.amt - a.amt));
+  res.forEach((r, i) => r.rank = r.all ? '∑' : i);
+  state.results = res; state.open.clear();
+  if (!res.find(r => r.key === state.selKey)) state.selKey = res[0]?.key ?? null;
+  renderList(); loadChartFromSelection();
+}
+
+function search() { (state.mode === 'search' ? runSearch : runKline)(); renderRange(); }
+
+/* ---------------- list ---------------- */
+function visibleResults() {
+  const q = state.filter.trim().toLowerCase();
+  let list = state.results.filter(r => !q || [r.stock.code, r.stock.name, r.broker.code, r.broker.name].some(x => x.toLowerCase().includes(q)));
+  const [k, dir] = state.sort.split('-'); const m = dir === 'asc' ? 1 : -1;
+  const pin = (a, b) => (b.all ? 1 : 0) - (a.all ? 1 : 0);
+  list = list.slice().sort((a, b) => pin(a, b) || (k === 'code' ? a.stock.code.localeCompare(b.stock.code) * m : (a[k] - b[k]) * m));
+  return list;
+}
+
+function pnlCell(r) {
+  if (r.pending) return '<span class="muted">估算中</span>';
+  return `<span class="${cls(r.pnl)}">${fmtS(r.pnl)}</span><small class="${cls(r.pnl)}">${fmtS(r.pct)}%</small>`;
+}
+
+function renderList() {
+  const list = visibleResults(); const body = $('rankBody');
+  const s = Math.max(0, state.endIdx - state.days + 1), e = state.endIdx;
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="6" class="empty">${state.results.length ? '沒有符合篩選的結果' : '查無符合條件的分點，試著降低買超金額門檻或拉長天數'}</td></tr>`;
+  } else {
+    body.innerHTML = list.map(r => {
+      const open = state.open.has(r.key);
+      let html = `<tr class="row${r.key === state.selKey ? ' active' : ''}${open ? ' open' : ''}" data-key="${r.key}">
+        <td><button class="chev" data-toggle="${r.key}" aria-label="展開明細">›</button></td>
+        <td><span class="no">${r.rank}</span></td>
+        <td class="stk"><b>${r.stock.name}</b><span>${r.stock.code}</span></td>
+        <td class="brk"><div>${r.broker.name}</div><span>${r.broker.code || '—'}</span></td>
+        <td class="r num"><span class="amt ${cls(r.amt)}">${fmt(r.amt)}</span></td>
+        <td class="r num pnl hide-sm">${pnlCell(r)}</td></tr>`;
+      if (open) {
+        const days = []; for (let i = e; i >= s; i--) if (r.flows[i]) days.push(`<span><span class="faint">${slash(CAL[i]).slice(5)}</span> <b class="${cls(r.flows[i])}">${fmtS(r.flows[i])}</b></span>`);
+        html += `<tr class="detail"><td colspan="6"><div class="faint" style="margin-bottom:6px">區間逐日買賣超（萬元）· ${slash(CAL[s])} — ${slash(CAL[e])}</div><div class="daily num">${days.join('') || '<span class="faint">區間內無交易</span>'}</div></td></tr>`;
+      }
+      return html;
+    }).join('');
+  }
+  const stockCount = new Set(list.map(r => r.stock.code)).size;
+  $('countText').textContent = state.mode === 'search' ? `共 ${stockCount} 檔` : `共 ${list.filter(r => !r.all).length} 個分點`;
+  $('groupText').textContent = state.mode === 'search' ? `${list.length} 組` : (list[0]?.stock.name ?? '');
+  const [k, dir] = state.sort.split('-');
+  $('amtArrow').textContent = k === 'amt' ? (dir === 'desc' ? '↓' : '↑') : '↕';
+  $('pnlArrow').textContent = k === 'pnl' ? (dir === 'desc' ? '↓' : '↑') : '↕';
+}
+
+$('rankBody').addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-toggle]');
+  if (t) { const k = t.dataset.toggle; state.open.has(k) ? state.open.delete(k) : state.open.add(k); renderList(); return; }
+  const row = ev.target.closest('tr.row'); if (!row) return;
+  state.selKey = row.dataset.key; renderList(); loadChartFromSelection();
+});
+$('filterInput').addEventListener('input', (e) => { state.filter = e.target.value; renderList(); });
+$('sortSel').addEventListener('change', (e) => { state.sort = e.target.value; renderList(); });
+document.querySelectorAll('th.sortable').forEach(th => th.addEventListener('click', () => {
+  const k = th.dataset.sort; const [ck, cd] = state.sort.split('-');
+  state.sort = `${k}-${ck === k && cd === 'desc' ? 'asc' : 'desc'}`; $('sortSel').value = state.sort; renderList();
+}));
+
+$('exportBtn').addEventListener('click', () => {
+  const s = Math.max(0, state.endIdx - state.days + 1);
+  const rows = [['名次', '股票代號', '股票名稱', '券商代號', '券商分點', '權證類型', '區間起', '區間迄', '買超金額(萬元)', '推估損益(萬元)', '推估報酬(%)']];
+  for (const r of visibleResults()) rows.push([r.rank, r.stock.code, r.stock.name, r.broker.code, r.broker.name, state.type === 'call' ? '認購' : '認售', CAL[s], CAL[state.endIdx], r.amt.toFixed(1), r.pending ? '估算中' : r.pnl.toFixed(1), r.pending ? '' : r.pct.toFixed(2)]);
+  const csv = '﻿' + rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(',')).join('\n');
+  download(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `權證分點_${state.type}_${CAL[state.endIdx]}_${state.days}d.csv`);
+});
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+
+/* ---------------- chart model ---------------- */
+function sma(arr, n) { const out = new Array(arr.length).fill(null); let s = 0; for (let i = 0; i < arr.length; i++) { s += arr[i]; if (i >= n) s -= arr[i - n]; if (i >= n - 1) out[i] = s / n; } return out; }
+function boll(arr, n = 20, k = 2) {
+  const mid = sma(arr, n), up = new Array(arr.length).fill(null), dn = new Array(arr.length).fill(null);
+  for (let i = n - 1; i < arr.length; i++) { let v = 0; for (let j = i - n + 1; j <= i; j++) v += (arr[j] - mid[i]) ** 2; const sd = Math.sqrt(v / n); up[i] = mid[i] + k * sd; dn[i] = mid[i] - k * sd; }
+  return { mid, up, dn };
+}
+
+function loadChartFromSelection() {
+  const r = state.results.find(x => x.key === state.selKey);
+  if (!r) { state.chart = null; renderSummary(); draw(); return; }
+  const bars = DataSource.bars(r.stock.code); const closes = bars.map(b => b.c);
+  state.chart = {
+    item: r, bars, flows: r.flows,
+    ma: { 5: sma(closes, 5), 10: sma(closes, 10), 20: sma(closes, 20), 60: sma(closes, 60) },
+    boll: boll(closes),
+  };
+  resetView();
+  renderSummary();
+}
+function resetView() {
+  state.viewCount = 120;
+  state.viewEnd = Math.min(N - 1, state.endIdx + Math.min(20, N - 1 - state.endIdx));
+  state.hover = null; draw();
+}
+
+function renderSummary() {
+  const c = state.chart; const typeTxt = state.type === 'call' ? '認購' : '認售';
+  for (const id of ['chartTag', 'listTag']) { $(id).textContent = typeTxt; $(id).className = `tag ${state.type}`; }
+  if (!c) { $('sName').textContent = '—'; $('sCode').textContent = ''; $('kAmt').textContent = '—'; $('kPnl').textContent = '—'; $('kBroker').textContent = '—'; $('kDay').textContent = '—'; return; }
+  const r = c.item;
+  $('sName').textContent = r.stock.name; $('sCode').textContent = r.stock.code;
+  $('kAmt').textContent = fmt(r.amt); $('kAmt').className = 'v num ' + cls(r.amt);
+  if (r.pending) { $('kPnl').textContent = '估算中'; $('kPnl').className = 'v neutral'; }
+  else { $('kPnl').innerHTML = `${fmtS(r.pnl)}<span style="font-size:13px;margin-left:6px">${fmtS(r.pct)}%</span>`; $('kPnl').className = 'v num ' + cls(r.pnl); }
+  $('kBroker').textContent = r.broker.name;
+  const d = c.flows[state.endIdx]; $('kDay').textContent = fmtS(d); $('kDay').className = 'v num ' + cls(d);
+}
+
+/* ---------------- drawing ---------------- */
+const pc = $('priceCanvas'), fc = $('flowCanvas');
+const PAD_L = 64, PAD_R = 70;
+let colors = {};
+function readColors() { const cs = getComputedStyle(document.documentElement); for (const k of ['text', 'text-2', 'text-3', 'up', 'down', 'grid', 'window', 'boll-fill', 'boll-line', 'vol', 'cum', 'ma5', 'ma10', 'ma20', 'ma60', 'accent', 'panel-2', 'panel-3', 'border-2']) colors[k] = cs.getPropertyValue('--' + k).trim(); }
+
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1; const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h); return { ctx, w, h };
+}
+function viewRange() { const e = state.viewEnd; const s = Math.max(0, e - state.viewCount + 1); return { s, e, n: e - s + 1 }; }
+function xMap(w) { const { s, n } = viewRange(); const plotW = w - PAD_L - PAD_R; const step = plotW / Math.max(n, 1); return { step, x: (i) => PAD_L + (i - s + 0.5) * step, idx: (x) => s + Math.floor((x - PAD_L) / step) }; }
+function niceStep(range, ticks) { const raw = range / ticks; const mag = 10 ** Math.floor(Math.log10(raw)); const n = raw / mag; return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag; }
+function niceMax(v) { if (v <= 0) return 1; const mag = 10 ** Math.floor(Math.log10(v)); for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * mag >= v) return m * mag; return 10 * mag; }
+
+function shadeWindow(ctx, xm, top, bottom, withLine) {
+  const s = Math.max(0, state.endIdx - state.days + 1), e = state.endIdx; const { s: vs, e: ve } = viewRange();
+  if (e < vs || s > ve) return;
+  const x0 = xm.x(Math.max(s, vs)) - xm.step / 2, x1 = xm.x(Math.min(e, ve)) + xm.step / 2;
+  ctx.fillStyle = colors.window; ctx.fillRect(x0, top, x1 - x0, bottom - top);
+  if (withLine && s >= vs) { ctx.save(); ctx.strokeStyle = colors.accent; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(x0) + 0.5, top); ctx.lineTo(Math.round(x0) + 0.5, bottom); ctx.stroke(); ctx.restore(); }
+}
+function line(ctx, xm, arr, y, color, s, e, dash) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1.3; if (dash) ctx.setLineDash(dash); ctx.beginPath(); let started = false;
+  for (let i = s; i <= e; i++) { const v = arr[i]; if (v == null) { started = false; continue; } const X = xm.x(i), Y = y(v); started ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); started = true; }
+  ctx.stroke(); ctx.restore();
+}
+
+function drawPrice() {
+  const { ctx, w, h } = setupCanvas(pc); const c = state.chart; ctx.font = '11px system-ui, sans-serif';
+  if (!c) { ctx.fillStyle = colors['text-3']; ctx.textAlign = 'center'; ctx.fillText('請先搜尋並選擇一筆分點', w / 2, h / 2); return; }
+  const { s, e } = viewRange(); const xm = xMap(w);
+  const top = 12, volH = Math.max(50, h * 0.2), gap = 22, pBottom = h - volH - gap, vTop = pBottom + gap, vBottom = h - 4;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = s; i <= e; i++) { const b = c.bars[i]; lo = Math.min(lo, b.l); hi = Math.max(hi, b.h); if (state.showBoll && c.boll.up[i] != null) { lo = Math.min(lo, c.boll.dn[i]); hi = Math.max(hi, c.boll.up[i]); } if (state.showMA) for (const k of [5, 10, 20, 60]) { const v = c.ma[k][i]; if (v != null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } } }
+  const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
+  const y = (v) => top + (hi - v) / (hi - lo) * (pBottom - top);
+
+  shadeWindow(ctx, xm, top - 12, h, true);
+  // grid + right labels
+  ctx.strokeStyle = colors.grid; ctx.fillStyle = colors['text-2']; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+  const st = niceStep(hi - lo, 4); const ref = c.bars[e].c;
+  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) { const Y = Math.round(y(v)) + 0.5; ctx.beginPath(); ctx.moveTo(PAD_L, Y); ctx.lineTo(w - PAD_R, Y); ctx.stroke(); ctx.fillText(fmt(v, st < 1 ? 2 : 0), w - PAD_R + 8, Y); }
+
+  // Bollinger
+  if (state.showBoll) {
+    ctx.fillStyle = colors['boll-fill']; ctx.beginPath(); let first = true;
+    for (let i = s; i <= e; i++) if (c.boll.up[i] != null) { first ? ctx.moveTo(xm.x(i), y(c.boll.up[i])) : ctx.lineTo(xm.x(i), y(c.boll.up[i])); first = false; }
+    for (let i = e; i >= s; i--) if (c.boll.dn[i] != null) ctx.lineTo(xm.x(i), y(c.boll.dn[i]));
+    ctx.closePath(); ctx.fill();
+    line(ctx, xm, c.boll.up, y, colors['boll-line'], s, e, [4, 3]); line(ctx, xm, c.boll.dn, y, colors['boll-line'], s, e, [4, 3]);
+    if (!state.showMA) line(ctx, xm, c.boll.mid, y, colors.ma20, s, e);
+  }
+  if (state.showMA) for (const k of [60, 20, 10, 5]) line(ctx, xm, c.ma[k], y, colors['ma' + k], s, e);
+
+  // candles
+  const bw = Math.max(1, Math.min(14, xm.step * 0.62));
+  for (let i = s; i <= e; i++) {
+    const b = c.bars[i]; const X = xm.x(i); const upBar = b.c >= b.o; const col = upBar ? colors.up : colors.down;
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(X) + 0.5, y(b.h)); ctx.lineTo(Math.round(X) + 0.5, y(b.l)); ctx.stroke();
+    const y0 = y(Math.max(b.o, b.c)), y1 = y(Math.min(b.o, b.c)); ctx.fillRect(X - bw / 2, y0, bw, Math.max(1, y1 - y0));
+  }
+
+  // volume
+  ctx.fillStyle = colors['text-2']; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('成交量（張）', PAD_L, pBottom + 16);
+  let vmax = 0; for (let i = s; i <= e; i++) vmax = Math.max(vmax, c.bars[i].v);
+  ctx.fillStyle = colors.vol; ctx.globalAlpha = 0.85;
+  for (let i = s; i <= e; i++) { const vh = c.bars[i].v / vmax * (vBottom - vTop - 4); ctx.fillRect(xm.x(i) - bw / 2, vBottom - vh, bw, vh); }
+  ctx.globalAlpha = 1;
+
+  // last price tag
+  const lastY = y(c.bars[e].c); ctx.fillStyle = c.bars[e].c >= (c.bars[e - 1]?.c ?? 0) ? colors.up : colors.down;
+  ctx.fillRect(w - PAD_R + 2, lastY - 9, PAD_R - 4, 18); ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(fmtP(c.bars[e].c, ref), w - PAD_R + 6, lastY);
+
+  // crosshair
+  if (state.hover) {
+    const { i, yPix, src } = state.hover; const X = Math.round(xm.x(i)) + 0.5;
+    ctx.strokeStyle = colors['text-3']; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(X, 0); ctx.lineTo(X, h); ctx.stroke();
+    if (src === 'price' && yPix >= top && yPix <= pBottom) {
+      ctx.beginPath(); ctx.moveTo(PAD_L, yPix + 0.5); ctx.lineTo(w - PAD_R, yPix + 0.5); ctx.stroke(); ctx.setLineDash([]);
+      const v = hi - (yPix - top) / (pBottom - top) * (hi - lo);
+      ctx.fillStyle = colors['panel-3']; ctx.fillRect(w - PAD_R + 2, yPix - 9, PAD_R - 4, 18); ctx.strokeStyle = colors['border-2']; ctx.strokeRect(w - PAD_R + 2.5, yPix - 8.5, PAD_R - 5, 17);
+      ctx.fillStyle = colors.text; ctx.fillText(fmtP(v, ref), w - PAD_R + 6, yPix);
+    }
+    ctx.setLineDash([]);
+  }
+  pc._geom = { top, pBottom };
+}
+
+function drawFlow() {
+  const { ctx, w, h } = setupCanvas(fc); const c = state.chart; ctx.font = '11px system-ui, sans-serif';
+  if (!c) return;
+  const { s, e } = viewRange(); const xm = xMap(w);
+  const top = 26, bottom = h - 30, mid = (top + bottom) / 2;
+  let m = 0, cum = 0, cm = 0; const cumArr = [];
+  for (let i = s; i <= e; i++) { m = Math.max(m, Math.abs(c.flows[i])); cum += c.flows[i]; cumArr[i] = cum; cm = Math.max(cm, Math.abs(cum)); }
+  m = niceMax(m || 1); cm = cm || 1;
+  const y = (v) => mid - v / m * (bottom - top) / 2; const yc = (v) => mid - v / cm * (bottom - top) / 2 * 0.95;
+
+  shadeWindow(ctx, xm, 0, bottom, true);
+  ctx.strokeStyle = colors.grid; ctx.lineWidth = 1;
+  for (const v of [m, 0, -m]) { const Y = Math.round(y(v)) + 0.5; ctx.beginPath(); ctx.moveTo(PAD_L, Y); ctx.lineTo(w - PAD_R, Y); ctx.stroke(); }
+  ctx.fillStyle = colors['text-2']; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText('累積', PAD_L - 10, 10);
+  ctx.fillText(fmt(m, 0).replace(/^/, ''), PAD_L - 10, y(m)); ctx.fillText('0.0', PAD_L - 10, y(0)); ctx.fillText(fmt(-m, 0), PAD_L - 10, y(-m));
+
+  const bw = Math.max(1.5, Math.min(12, xm.step * 0.6));
+  for (let i = s; i <= e; i++) { const v = c.flows[i]; if (!v) continue; ctx.fillStyle = v > 0 ? colors.up : colors.down; const Y = y(v); ctx.fillRect(xm.x(i) - bw / 2, Math.min(Y, mid), bw, Math.max(1, Math.abs(Y - mid))); }
+  ctx.strokeStyle = colors.cum; ctx.lineWidth = 1.2; ctx.beginPath(); for (let i = s; i <= e; i++) { const X = xm.x(i), Y = yc(cumArr[i]); i === s ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y); } ctx.stroke();
+
+  // x axis labels
+  ctx.fillStyle = colors['text-2']; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.strokeStyle = colors['text-3'];
+  const every = Math.max(1, Math.ceil(70 / xm.step));
+  for (let i = e; i >= s; i -= every) { const X = Math.round(xm.x(i)) + 0.5; ctx.beginPath(); ctx.moveTo(X, bottom + 4); ctx.lineTo(X, bottom + 8); ctx.stroke(); ctx.fillText(CAL[i].slice(5).replace('-', '/'), X, bottom + 11); }
+
+  if (state.hover) {
+    const X = Math.round(xm.x(state.hover.i)) + 0.5; ctx.strokeStyle = colors['text-3']; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(X, 0); ctx.lineTo(X, bottom); ctx.stroke(); ctx.setLineDash([]);
+    const label = slash(CAL[state.hover.i]); const tw = ctx.measureText(label).width + 12;
+    ctx.fillStyle = colors['panel-3']; ctx.fillRect(X - tw / 2, bottom + 6, tw, 18); ctx.fillStyle = colors.text; ctx.fillText(label, X, bottom + 9);
+  }
+  state._cumArr = cumArr;
+}
+
+function renderReadouts() {
+  const c = state.chart; const { s, e } = viewRange();
+  if (!c) { $('ohlc').innerHTML = ''; $('maLegend').innerHTML = ''; $('bollLegend').innerHTML = ''; $('fhDay').textContent = ''; $('fhCum').textContent = ''; $('fhFrom').textContent = ''; $('viewText').textContent = ''; return; }
+  const i = state.hover ? state.hover.i : Math.min(state.endIdx, e); const b = c.bars[i], p = c.bars[i - 1] || b; const ref = b.c;
+  const k = (v) => `<b class="${cls(v - p.c)}">${fmtP(v, ref)}</b>`; const chg = (b.c / p.c - 1) * 100;
+  $('ohlc').innerHTML = `<b>${slash(b.d)}</b><span><span class="k">開</span>${k(b.o)}</span><span><span class="k">高</span>${k(b.h)}</span><span><span class="k">低</span>${k(b.l)}</span><span><span class="k">收</span>${k(b.c)}</span><span><span class="k">當日漲跌幅</span><b class="${cls(chg)}">${fmtS(chg, 2)}%</b></span><span><span class="k">量</span><b>${b.v.toLocaleString('en-US')}</b> 張</span>`;
+  $('maLegend').hidden = !state.showMA; $('bollLegend').hidden = !state.showBoll;
+  $('maLegend').innerHTML = [5, 10, 20, 60].map(n => `<span class="li"><i class="sw" style="background:var(--ma${n})"></i>MA${n} <b class="num">${fmtP(c.ma[n][i], ref)}</b></span>`).join('');
+  $('bollLegend').innerHTML = `<span class="li">布林 <i class="sw dash"></i>上 <b class="num">${fmtP(c.boll.up[i], ref)}</b></span><span class="li"><i class="sw" style="background:var(--ma20)"></i>中 <b class="num">${fmtP(c.boll.mid[i], ref)}</b></span><span class="li"><i class="sw dash"></i>下 <b class="num">${fmtP(c.boll.dn[i], ref)}</b></span>`;
+  const d = c.flows[i]; const cum = state._cumArr?.[i] ?? 0;
+  $('fhDay').innerHTML = `<b class="${cls(d) || 'muted'}">${CAL[i].slice(5).replace('-', '/')}</b>&nbsp;&nbsp;<b class="${cls(d)}">${fmtS(d)} 萬</b>`;
+  $('fhCum').textContent = `累積 ${fmtS(cum)} 萬`;
+  $('fhFrom').textContent = `自 ${slash(CAL[s])} 累積`;
+  $('viewText').textContent = `${slash(CAL[s])} — ${slash(CAL[e])} · ${e - s + 1} 根`;
+}
+
+let raf = 0;
+function draw() { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { readColors(); drawPrice(); drawFlow(); renderReadouts(); }); }
+
+/* ---------------- interaction ---------------- */
+function clampView() { state.viewCount = Math.max(20, Math.min(N, state.viewCount)); state.viewEnd = Math.max(state.viewCount - 1, Math.min(N - 1, state.viewEnd)); }
+function zoom(f, anchorIdx) {
+  const { s, e } = viewRange(); const a = anchorIdx ?? e; const ratio = (e - a) / Math.max(1, e - s);
+  const nc = Math.round(state.viewCount * f); state.viewCount = nc; state.viewEnd = Math.round(a + ratio * (nc - 1)); clampView(); draw();
+}
+let drag = null;
+for (const [cv, src] of [[pc, 'price'], [fc, 'flow']]) {
+  cv.addEventListener('pointerdown', (ev) => { if (!state.chart) return; drag = { x: ev.clientX, end: state.viewEnd }; cv.setPointerCapture(ev.pointerId); });
+  cv.addEventListener('pointermove', (ev) => {
+    if (!state.chart) return; const rect = cv.getBoundingClientRect(); const x = ev.clientX - rect.left, yy = ev.clientY - rect.top;
+    const xm = xMap(rect.width);
+    if (drag) { const di = Math.round((ev.clientX - drag.x) / xm.step); state.viewEnd = drag.end - di; clampView(); }
+    const { s, e } = viewRange(); const i = Math.max(s, Math.min(e, xm.idx(x)));
+    state.hover = { i, yPix: yy, src }; draw();
+  });
+  cv.addEventListener('pointerup', () => { drag = null; });
+  cv.addEventListener('pointerleave', () => { if (!drag) { state.hover = null; draw(); } });
+  cv.addEventListener('wheel', (ev) => {
+    if (!state.chart) return;
+    if (ev.ctrlKey || ev.metaKey) { ev.preventDefault(); const rect = cv.getBoundingClientRect(); const xm = xMap(rect.width); zoom(ev.deltaY > 0 ? 1.15 : 1 / 1.15, xm.idx(ev.clientX - rect.left)); }
+    else if (Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) { ev.preventDefault(); state.viewEnd += Math.round(ev.deltaX / 10); clampView(); draw(); }
+  }, { passive: false });
+}
+$('zoomIn').onclick = () => zoom(1 / 1.25);
+$('zoomOut').onclick = () => zoom(1.25);
+$('resetView').onclick = resetView;
+$('bigBtn').onclick = () => { const z = $('chartCard').classList.toggle('zoomed'); $('bigBtn').textContent = z ? '還原' : '放大圖表'; draw(); };
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('chartCard').classList.contains('zoomed')) $('bigBtn').click(); });
+$('maTg').onclick = () => { state.showMA = !state.showMA; $('maTg').setAttribute('aria-pressed', state.showMA); draw(); };
+$('bollTg').onclick = () => { state.showBoll = !state.showBoll; $('bollTg').setAttribute('aria-pressed', state.showBoll); draw(); };
+new ResizeObserver(draw).observe($('chartCard'));
+
+/* ---------------- screenshot ---------------- */
+$('shotBtn').onclick = () => {
+  if (!state.chart) return; readColors();
+  const dpr = window.devicePixelRatio || 1; const W = pc.width; const headH = Math.round(56 * dpr), stripH = Math.round(26 * dpr);
+  const out = document.createElement('canvas'); out.width = W; out.height = headH + pc.height + stripH + fc.height;
+  const x = out.getContext('2d'); const bg = getComputedStyle(document.body).backgroundColor; x.fillStyle = bg; x.fillRect(0, 0, out.width, out.height);
+  const r = state.chart.item; x.scale(dpr, dpr); x.fillStyle = colors.text; x.font = 'bold 18px system-ui, sans-serif';
+  x.fillText(`${r.stock.name} ${r.stock.code} · ${r.broker.name} · ${state.type === 'call' ? '認購' : '認售'}`, 14, 24);
+  x.font = '12px system-ui, sans-serif'; x.fillStyle = colors['text-2'];
+  const s = Math.max(0, state.endIdx - state.days + 1);
+  x.fillText(`查詢區間 ${slash(CAL[s])} — ${slash(CAL[state.endIdx])}（${state.days} 日） 區間買超 ${fmt(r.amt)} 萬元`, 14, 44);
+  x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(pc, 0, headH);
+  x.fillStyle = colors['panel-3']; x.fillRect(0, headH + pc.height, W, stripH);
+  x.scale(dpr, dpr); x.fillStyle = colors.text; x.font = 'bold 12px system-ui, sans-serif'; x.fillText(`權證買賣超（萬元）  ${$('fhCum').textContent}`, 14, (headH + pc.height) / dpr + 17);
+  x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(fc, 0, headH + pc.height + stripH);
+  out.toBlob(b => download(b, `${r.stock.code}_${r.broker.code || 'ALL'}_${CAL[state.endIdx]}.png`));
+};
+
+/* ---------------- controls ---------------- */
+function renderRange() {
+  const s = Math.max(0, state.endIdx - state.days + 1);
+  $('rangeText').textContent = `${slash(CAL[s])} — ${slash(CAL[state.endIdx])}`;
+  $('rangeDays').textContent = ` ${state.endIdx - s + 1} 個交易日`;
+}
+function setDays(d) {
+  state.days = Math.max(1, Math.min(250, d | 0 || 1));
+  $('daysInput').value = state.days;
+  $('daysGroup').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.d === state.days));
+  renderRange();
+}
+$('daysGroup').innerHTML = DAY_OPTS.map(d => `<button data-d="${d}">${d}</button>`).join('');
+$('daysGroup').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { setDays(+b.dataset.d); search(); } });
+$('daysInput').addEventListener('change', (e) => { setDays(+e.target.value); search(); });
+
+document.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => {
+  state.type = b.dataset.type; document.querySelectorAll('[data-type]').forEach(x => x.setAttribute('aria-pressed', x === b)); search();
+}));
+$('endDate').min = CAL[0]; $('endDate').max = LATEST;
+function setEnd(ds) { state.endIdx = idxForDate(ds); $('endDate').value = CAL[state.endIdx]; $('latestBtn').style.opacity = state.endIdx === N - 1 ? 1 : 0.55; renderRange(); }
+$('endDate').addEventListener('change', (e) => { if (e.target.value) { setEnd(e.target.value); search(); } });
+$('latestBtn').onclick = () => { setEnd(LATEST); search(); };
+$('minAmt').addEventListener('change', (e) => { state.minAmt = Math.max(0, +e.target.value || 0); });
+$('minAmt').addEventListener('keydown', (e) => { if (e.key === 'Enter') { state.minAmt = Math.max(0, +e.target.value || 0); search(); } });
+$('unique').addEventListener('change', (e) => { state.unique = e.target.checked; search(); });
+$('excludeHQ').addEventListener('change', (e) => { state.excludeHQ = e.target.checked; search(); });
+$('searchBtn').onclick = () => { state.minAmt = Math.max(0, +$('minAmt').value || 0); if (state.mode === 'kline') pickStock(); search(); };
+
+$('stockList').innerHTML = STOCKS.map(s => `<option value="${s.code} ${s.name}">`).join('');
+function pickStock() {
+  const v = $('stockInput').value.trim(); const code = v.split(/\s+/)[0];
+  const st = STOCKS.find(s => s.code === code) || STOCKS.find(s => s.name.includes(v) || s.code.startsWith(v));
+  if (st) { state.klineStock = st.code; $('stockInput').value = `${st.code} ${st.name}`; }
+}
+$('stockInput').addEventListener('change', () => { pickStock(); search(); });
+
+function setMode(m) {
+  state.mode = m;
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.mode === m));
+  document.querySelectorAll('.s-controls').forEach(x => x.hidden = m !== 'search');
+  document.querySelectorAll('.k-controls').forEach(x => x.hidden = m !== 'kline');
+  // 排除總行 stays visible in both modes
+  $('excludeHQ').closest('.switch').hidden = false;
+  $('listTitle').textContent = m === 'search' ? '分點買超排行' : '分點進出';
+  $('amtHead').textContent = m === 'search' ? '買超金額' : '區間買賣超';
+  $('searchLabel').textContent = m === 'search' ? '開始搜尋' : '載入K線';
+  if (m === 'kline') {
+    const cur = state.chart?.item; if (cur) { state.klineStock = cur.stock.code; state.selKey = cur.key; }
+    const st = STOCKS.find(s => s.code === state.klineStock); $('stockInput').value = `${st.code} ${st.name}`;
+  }
+  search();
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  document.querySelectorAll('[data-theme-btn]').forEach(b => b.setAttribute('aria-pressed', b.dataset.themeBtn === t));
+  try { localStorage.setItem('warrant-theme', t); } catch (_) { /* ignore */ }
+  draw();
+}
+document.querySelectorAll('[data-theme-btn]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeBtn)));
+
+/* ---------------- boot ---------------- */
+$('latestDate').textContent = slash(LATEST);
+let saved = null; try { saved = localStorage.getItem('warrant-theme'); } catch (_) { /* ignore */ }
+setTheme(saved === 'light' ? 'light' : 'dark');
+setEnd(LATEST); setDays(10);
+search();
+})();
+</script>
+</body>
+</html>

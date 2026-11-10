@@ -1,4 +1,6 @@
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { handleEvents, printPrompts } from '../app/index.js';
 import config from '../config/index.js';
 import { validateLineSignature } from '../middleware/index.js';
@@ -6,6 +8,9 @@ import storage from '../storage/index.js';
 import { fetchVersion, getVersion } from '../utils/index.js';
 
 const app = express();
+
+const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../public');
+app.use('/warrant', express.static(path.join(publicDir, 'warrant')));
 
 app.use(express.json({
   verify: (req, res, buf) => {
