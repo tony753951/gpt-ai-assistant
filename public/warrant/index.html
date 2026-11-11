@@ -389,23 +389,26 @@ canvas { display: block; width: 100%; touch-action: pan-y; }
     </div>
   </section>
 </main>
-<p class="sim">本頁目前使用內建模擬資料（決定性產生），僅供介面展示；接上真實資料來源請替換 <code>DataSource</code>。</p>
+<p class="sim" id="simNote">找不到 <code>data.json</code>，目前顯示內建模擬資料，僅供介面展示。真實資料格式請見 <code>public/warrant/README.md</code>。</p>
 
 <script>
 (() => {
 'use strict';
 
 /* =====================================================================
- * DataSource — simulated, deterministic market + warrant broker data.
- * Replace the methods of this object with real API calls to go live.
+ * Data layer.
+ * On load the page fetches real data from `data.json` next to this page
+ * (or from the URL given as ?data=...). The format is documented in
+ * public/warrant/README.md. If that fails, it falls back to the
+ * deterministic simulated data generated below.
  * ===================================================================*/
-const LATEST = '2026-11-10';
+let LATEST = '2026-11-10';
 
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function rngOf(seed) { let a = typeof seed === 'string' ? hashStr(seed) : seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function gauss(r) { let u = 0, v = 0; while (u === 0) u = r(); while (v === 0) v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 
-const STOCKS = [
+let STOCKS = [
   ['TWA00', '加權指數', 42000, 12800000, 0.011],
   ['2330', '台積電', 1450, 38000, 0.017], ['2454', '聯發科', 1580, 9000, 0.022], ['2317', '鴻海', 228, 62000, 0.019],
   ['2308', '台達電', 780, 9500, 0.02], ['2382', '廣達', 312, 21000, 0.024], ['3231', '緯創', 138, 48000, 0.027],
@@ -422,7 +425,7 @@ const STOCKS = [
   ['2344', '華邦電', 33.6, 98000, 0.029], ['1519', '華城', 712, 5500, 0.033], ['1503', '士電', 266, 6200, 0.026],
 ].map(([code, name, base, vol, sigma]) => ({ code, name, base, vol, sigma }));
 
-const BROKERS = [
+let BROKERS = [
   ['779C1', '國票-敦北法人'], ['9268', '凱基-台北'], ['9216', '凱基-信義'], ['592Z', '元大-土城永寧'], ['5920', '元大總公司'],
   ['9800', '元大-中正'], ['9600', '富邦總公司'], ['9661', '富邦-建國'], ['9658', '富邦-嘉義'], ['9A9R', '永豐金-敦南'],
   ['9A00', '永豐金總公司'], ['920F', '凱基-站前'], ['1160', '日盛-台北'], ['8440', '摩根大通'], ['1360', '港商麥格理'],
@@ -433,12 +436,12 @@ const BROKERS = [
 ].map(([code, name]) => ({ code, name, hq: /總公司|總行/.test(name) }));
 
 // Trading calendar: weekdays only, ending at LATEST.
-const CAL = (() => {
+let CAL = (() => {
   const out = []; const d = new Date('2025-01-02T00:00:00Z'); const end = new Date(LATEST + 'T00:00:00Z');
   while (d <= end) { const w = d.getUTCDay(); if (w !== 0 && w !== 6) out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
   return out;
 })();
-const N = CAL.length;
+let N = CAL.length;
 
 function tickRound(p, isIndex) {
   if (isIndex) return Math.round(p * 100) / 100;
@@ -512,10 +515,51 @@ function genFlows(stock) {
   return out;
 }
 
+/* ---------- real data loader ---------- */
+async function loadRealData() {
+  const url = new URLSearchParams(location.search).get('data') || 'data.json';
+  let res;
+  try { res = await fetch(url, { cache: 'no-store' }); } catch (_) { return null; }
+  if (!res.ok) return null;
+  const j = await res.json();
+  applyData(j);
+  return { url, source: j.source || '' };
+}
+
+// Real-data format (see README.md):
+// { latest, calendar: [date...], stocks: [{code,name}], brokers: [{code,name,hq?}],
+//   bars: { code: { date: [o,h,l,c,v] } },
+//   flows: [{ stock, broker, type: "call"|"put", days: { date: 萬元 } }] }
+function applyData(j) {
+  if (!Array.isArray(j.calendar) || !j.calendar.length) throw new Error('data.calendar 缺少交易日');
+  CAL = j.calendar.map(String).sort(); N = CAL.length; LATEST = j.latest || CAL[N - 1];
+  const pos = new Map(CAL.map((d, i) => [d, i]));
+  STOCKS = (j.stocks || []).map(s => ({ code: String(s.code), name: String(s.name ?? s.code) }));
+  BROKERS = (j.brokers || []).map(b => ({ code: String(b.code), name: String(b.name ?? b.code), hq: b.hq ?? /總公司|總行/.test(b.name || '') }));
+  const bmap = new Map(BROKERS.map(b => [b.code, b]));
+  barsCache.clear(); flowCache.clear();
+  for (const st of STOCKS) {
+    const rows = (j.bars || {})[st.code] || {};
+    const bars = CAL.map(d => { const r = rows[d]; return r && r.length >= 4 ? { d, o: +r[0], h: +r[1], l: +r[2], c: +r[3], v: +(r[4] || 0) } : null; });
+    // Fill days without a bar (suspension, missing data) with a flat bar at the nearest close.
+    let ref = bars.find(Boolean); ref = ref ? ref.c : 0;
+    for (let i = 0; i < N; i++) { if (bars[i]) ref = bars[i].c; else bars[i] = { d: CAL[i], o: ref, h: ref, l: ref, c: ref, v: 0 }; }
+    barsCache.set(st.code, bars); flowCache.set(st.code, []);
+  }
+  const recs = new Map();
+  for (const f of j.flows || []) {
+    const sc = String(f.stock), bc = String(f.broker); if (!flowCache.has(sc)) continue;
+    const key = sc + '|' + bc; let rec = recs.get(key);
+    if (!rec) { rec = { broker: bmap.get(bc) || { code: bc, name: bc, hq: false }, call: new Float64Array(N), put: new Float64Array(N) }; recs.set(key, rec); flowCache.get(sc).push(rec); }
+    const arr = rec[f.type === 'call' ? 'call' : 'put'];
+    for (const [d, v] of Object.entries(f.days || {})) { const i = pos.get(d); if (i != null) arr[i] += +v || 0; }
+  }
+}
+
 const DataSource = {
-  latest: LATEST,
-  calendar: CAL,
-  stocks: STOCKS,
+  get latest() { return LATEST; },
+  get calendar() { return CAL; },
+  get stocks() { return STOCKS; },
   bars(stockCode) { return genBars(STOCKS.find(x => x.code === stockCode)); },
   flowsFor(stockCode, brokerCode, type) {
     const s = STOCKS.find(x => x.code === stockCode); if (!s) return new Float64Array(N);
@@ -928,7 +972,6 @@ $('daysInput').addEventListener('change', (e) => { setDays(+e.target.value); sea
 document.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => {
   state.type = b.dataset.type; document.querySelectorAll('[data-type]').forEach(x => x.setAttribute('aria-pressed', x === b)); search();
 }));
-$('endDate').min = CAL[0]; $('endDate').max = LATEST;
 function setEnd(ds) { state.endIdx = idxForDate(ds); $('endDate').value = CAL[state.endIdx]; $('latestBtn').style.opacity = state.endIdx === N - 1 ? 1 : 0.55; renderRange(); }
 $('endDate').addEventListener('change', (e) => { if (e.target.value) { setEnd(e.target.value); search(); } });
 $('latestBtn').onclick = () => { setEnd(LATEST); search(); };
@@ -938,7 +981,6 @@ $('unique').addEventListener('change', (e) => { state.unique = e.target.checked;
 $('excludeHQ').addEventListener('change', (e) => { state.excludeHQ = e.target.checked; search(); });
 $('searchBtn').onclick = () => { state.minAmt = Math.max(0, +$('minAmt').value || 0); if (state.mode === 'kline') pickStock(); search(); };
 
-$('stockList').innerHTML = STOCKS.map(s => `<option value="${s.code} ${s.name}">`).join('');
 function pickStock() {
   const v = $('stockInput').value.trim(); const code = v.split(/\s+/)[0];
   const st = STOCKS.find(s => s.code === code) || STOCKS.find(s => s.name.includes(v) || s.code.startsWith(v));
@@ -958,7 +1000,7 @@ function setMode(m) {
   $('searchLabel').textContent = m === 'search' ? '開始搜尋' : '載入K線';
   if (m === 'kline') {
     const cur = state.chart?.item; if (cur) { state.klineStock = cur.stock.code; state.selKey = cur.key; }
-    const st = STOCKS.find(s => s.code === state.klineStock); $('stockInput').value = `${st.code} ${st.name}`;
+    const st = STOCKS.find(s => s.code === state.klineStock) || STOCKS[0]; if (st) { state.klineStock = st.code; $('stockInput').value = `${st.code} ${st.name}`; }
   }
   search();
 }
@@ -973,11 +1015,23 @@ function setTheme(t) {
 document.querySelectorAll('[data-theme-btn]').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeBtn)));
 
 /* ---------------- boot ---------------- */
-$('latestDate').textContent = slash(LATEST);
 let saved = null; try { saved = localStorage.getItem('warrant-theme'); } catch (_) { /* ignore */ }
 setTheme(saved === 'light' ? 'light' : 'dark');
-setEnd(LATEST); setDays(10);
-search();
+(async () => {
+  try {
+    const real = await loadRealData();
+    if (real) $('simNote').textContent = `資料來源：${real.source || real.url}（${slash(CAL[0])} — ${slash(LATEST)}，${STOCKS.length} 檔標的）`;
+  } catch (err) {
+    $('simNote').textContent = `資料檔讀取失敗（${err.message}），目前顯示內建模擬資料。`;
+    console.error(err);
+  }
+  if (!STOCKS.find(s => s.code === state.klineStock)) state.klineStock = STOCKS[0]?.code;
+  $('stockList').innerHTML = STOCKS.map(s => `<option value="${s.code} ${s.name}">`).join('');
+  $('endDate').min = CAL[0]; $('endDate').max = LATEST;
+  $('latestDate').textContent = slash(LATEST);
+  setEnd(LATEST); setDays(10);
+  search();
+})();
 })();
 </script>
 </body>
