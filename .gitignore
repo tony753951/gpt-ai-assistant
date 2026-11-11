@@ -2,3 +2,5 @@ node_modules
 .vscode
 .env
 .env.*
+data/raw/
+public/warrant/data.json
